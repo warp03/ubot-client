@@ -1,0 +1,76 @@
+{
+	"identityTransformKeys": [
+		"gid",
+		"cid",
+		"uid",
+		"parentGid"
+	],
+	"events": {
+		"trace": [
+			"string"
+		],
+		"debug": [
+			"string"
+		],
+		"info": [
+			"string"
+		],
+		"warn": [
+			"string"
+		],
+		"error": [
+			"string"
+		],
+		"login": [
+		],
+		"disconnect": [
+		],
+		"message": [
+			{
+				"mid": "string",
+				"content": "string",
+				"deleted": "boolean",
+				"dm": "boolean",
+				"self": "boolean",
+				"author": {
+					"uid": "string",
+					"username": "string"
+				},
+				"channel": {
+					"cid": "string",
+					"name": "string",
+					"deleted": "boolean",
+					"parentGid": "string",
+					"send": "function"
+				},
+				"group": {
+					"gid": "string",
+					"name": "string",
+					"deleted": "boolean"
+				},
+				"reply": "function",
+				"includeInstance": true
+			}
+		],
+		"joinChannel": [
+			{
+				"cid": "string",
+				"name": "string",
+				"includeInstance": true
+			}
+		],
+		"joinGroup": [
+			{
+				"gid": "string",
+				"name": "string",
+				"includeInstance": true
+			}
+		]
+	},
+	"types": {
+		"user": {
+			"uid": "string",
+			"username": "string"
+		}
+	}
+}

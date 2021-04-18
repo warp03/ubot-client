@@ -1,0 +1,153 @@
+{
+	"module": "discordjs",
+	"defaultVersion": 12,
+	"eventTransformers": {
+		"debug": {
+			"event": "debug",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			],
+			"special": "debugStr"
+		},
+		"warn": {
+			"event": "warn",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"error": {
+			"event": "error",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"login": {
+			"event": "login",
+			"args": [
+			]
+		},
+		"disconnect": {
+			"event": "disconnect",
+			"args": [
+			]
+		},
+		"message": {
+			"event": "message",
+			"args": [
+				{
+					"mid": {
+						"argIndex": 0,
+						"property": "id"
+					},
+					"content": {
+						"argIndex": 0,
+						"property": "content"
+					},
+					"deleted": {
+						"argIndex": 0,
+						"property": "deleted"
+					},
+					"dm": {
+						"argIndex": 0,
+						"script": "!arg.guild"
+					},
+					"self": {
+						"argIndex": 0,
+						"script": "arg.author.id == instance.vbot.user.id"
+					},
+					"author": {
+						"uid": {
+							"argIndex": 0,
+							"property": "author.id"
+						},
+						"username": {
+							"argIndex": 0,
+							"script": "arg.author.username + '#' + arg.author.discriminator"
+						}
+					},
+					"channel": {
+						"cid": {
+							"argIndex": 0,
+							"property": "channel.id"
+						},
+						"name": {
+							"argIndex": 0,
+							"property": "channel.name"
+						},
+						"deleted": {
+							"argIndex": 0,
+							"property": "channel.deleted"
+						},
+						"parentGid": {
+							"argIndex": 0,
+							"property": "channel.guild.id"
+						},
+						"send": {
+							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0].channel.id + \"', content)\").bind(botGlobals)"
+						}
+					},
+					"group": {
+						"gid": {
+							"argIndex": 0,
+							"property": "channel.guild.id"
+						},
+						"name": {
+							"argIndex": 0,
+							"property": "channel.guild.name"
+						},
+						"deleted": {
+							"argIndex": 0,
+							"property": "channel.guild.deleted"
+						}
+					},
+					"reply": {
+						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0].channel.id + \"', '<@\" + arguments[0].author.id + \">, ' + content)\").bind(botGlobals)"
+					},
+					"includeOriginal": 0
+				}
+			]
+		},
+		"joinChannel": {
+			"event": "channelCreate",
+			"args": [
+				{
+					"cid": {
+						"argIndex": 0,
+						"property": "id"
+					},
+					"name": {
+						"argIndex": 0,
+						"property": "name"
+					}
+				}
+			]
+		},
+		"joinGroup": {
+			"event": "guildCreate",
+			"args": [
+				{
+					"gid": {
+						"argIndex": 0,
+						"property": "id"
+					},
+					"name": {
+						"argIndex": 0,
+						"property": "name"
+					}
+				}
+			]
+		}
+	},
+	"typeTransformers": {
+		"user": {
+			"uid": "id",
+			"username": "username"
+		}
+	}
+}

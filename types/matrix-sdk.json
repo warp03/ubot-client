@@ -1,0 +1,102 @@
+{
+	"module": "matrix-sdk",
+	"eventTransformers": {
+		"trace": {
+			"event": "trace",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"debug": {
+			"event": "debug",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			],
+			"special": "debugStr"
+		},
+		"info": {
+			"event": "info",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"warn": {
+			"event": "warn",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"error": {
+			"event": "error",
+			"args": [
+				{
+					"argIndex": 0
+				}
+			]
+		},
+		"message": {
+			"event": "room.message",
+			"args": [
+				{
+					"mid": {
+						"argIndex": 1,
+						"property": "event_id"
+					},
+					"content": {
+						"argIndex": 1,
+						"script": "arg.content.formatted_body || arg.content.body"
+					},
+					"deleted": {
+						"argIndex": 1,
+						"script": "!arg.content"
+					},
+					"self": {
+						"argIndex": 1,
+						"script": "arg.sender == instance.vbot._selfUserId"
+					},
+					"author": {
+						"uid": {
+							"argIndex": 1,
+							"property": "sender"
+						},
+						"username": {
+							"argIndex": 1,
+							"script": "arg.sender.split(':')[0]"
+						}
+					},
+					"channel": {
+						"cid": {
+							"argIndex": 0
+						},
+						"send": {
+							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0] + \"', content)\").bind(botGlobals)"
+						}
+					},
+					"group": {
+						"gid": {
+							"constant": "matrix_global"
+						}
+					},
+					"reply": {
+						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0] + \"', content)\").bind(botGlobals)"
+					},
+					"includeOriginal": 1
+				}
+			]
+		}
+	},
+	"typeTransformers": {
+		"user": {
+			"uid": "id",
+			"username": "displayname"
+		}
+	}
+}
