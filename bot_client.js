@@ -113,7 +113,7 @@ const virtualModules = {
 };
 
 const moduleContext = {omzlib, instanceDir, bot, botInstances, variables, cd, modules, botData, require: virtualRequire, convertToType, VERSION, BRAND,
-	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler};
+	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer};
 
 
 preinit();
@@ -179,7 +179,7 @@ function preinit(){
 		return new Promise((resolve, reject) => {
 			reject(new Error("Unimplemented"));
 		});
-	}
+	};
 
 	basehandler_attach("preinit");
 	basehandler_attach("init", () => {
