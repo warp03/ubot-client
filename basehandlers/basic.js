@@ -42,8 +42,12 @@ function saveIdentities(){
 	}
 }
 
+let counter = 0;
+
 function getNewId(){
-	return Date.now().toString(16) + omzlib.util.randomHex8();
+	if(counter > 0xffff)
+		counter = 0;
+	return (Date.now() - 1577836800000).toString(16) + ((Math.floor(Math.random() * 0xffff) + (counter++)) % 0xffff).toString(16);
 }
 
 
