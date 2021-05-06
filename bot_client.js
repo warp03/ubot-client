@@ -23,7 +23,7 @@ const logger = omzlib.logger;
 const baseStructures = require("./baseStructures");
 
 
-const VERSION = "3.1.1";
+const VERSION = "3.1.2";
 const BRAND = "UBot client v" + VERSION;
 
 
@@ -253,6 +253,21 @@ function preinit(){
 }
 
 function init(){
+	globalEventHandler.on("_checkCommandPermission", (user, cmd, deny) => {
+		if(cmd.startsWith("internal.")){
+			let allowed = false;
+			let ownerIds = (pargs.getValue("ownerId") || variables.ownerId || "").split(",");
+			for(let oid of ownerIds){
+				if(oid == user.uid){
+					allowed = true;
+					break;
+				}
+			}
+			if(!allowed)
+				deny();
+		}
+	});
+
 	baseHandler.init().then(() => {
 		bot_init().then(() => {
 			try{
@@ -587,54 +602,7 @@ function bot_on_message(message){
 
 		let args = message.content.substring(variables.cmdPrefix.length).split(" ");
 		let cmd = args[0];
-		if(cmd == "stats"){
-			if(variables.mute)
-				return;
-			let meta = botInstances[message.client.type];
-			if(typeof(meta.mod.custom) == "object" && typeof(meta.mod.custom.stats) == "function"){
-				meta.mod.custom.stats(meta.vbot, message);
-			}else{
-				message.channel.send("**Stats**:\nUptime: " + getTimeReadable(bot.uptime) + "\nMessages: " + stats.messagesProcessed
-					+ "\nCommands: " + stats.commandsProcessed + "\n" + (baseHandler.addStats("default", []) || ""));
-			}
-		}else if(cmd.startsWith("internal.")){
-			if(message.author.uid != (pargs.getValue("ownerId") || variables.ownerId)){
-				if(!variables.mute)
-					message.reply("Permission denied");
-				return;
-			}
-			cmd = cmd.split(".")[1];
-
-			if(cmd == "test"){
-				if(!variables.mute)
-					message.reply("Success");
-			}else if(cmd == "setvar"){ // <key> <value>
-				if(args.length > 2){
-					let value = args[2];
-					for(let i = 3; i < args.length; i++)
-						value += " " + args[i];
-					variables[args[1]] = convertToType(value);
-				}else if(!variables.mute)
-					message.reply("At least two arguments required");
-			}else if(cmd == "getvar"){
-				if(args.length > 1){
-					if(!variables.mute)
-						message.reply(variables[args[1]]);
-				}else if(!variables.mute)
-					message.reply("At least one argument required");
-			}else if(cmd == "shutdown"){
-				shutdown();
-			}else if(cmd == "uptime"){
-				if(!variables.mute)
-					message.reply("Uptime: " + getTimeReadable(bot.uptime));
-			}else if(cmd == "setCDMessage"){
-				cd[502] = message;
-			}else
-				if(!variables.mute)
-					message.reply("Unknown internal command");
-		}else{
-			runCommand(message, cmd, args, () => {});
-		}
+		runCommand(message, cmd, args);
 	}
 }
 
@@ -654,7 +622,8 @@ function reloadModules(){
 							logger: createLoggerFor(m.name, "module"),
 							baseHandler,
 							moduleData,
-							runCommand
+							runCommand,
+							runExternalCommand
 						}));
 					moduleData.load();
 				}catch(e){
@@ -687,7 +656,68 @@ function unloadModules(){
 }
 
 
-function runCommand(message, cmd, args, commandCallback){
+function runCommand(message, cmd, args){
+	let allowed = true;
+	let denyInfo;
+	globalEventHandler.emit("_checkCommandPermission", message.author, cmd, (info) => {
+		allowed = false;
+		if(denyInfo)
+			denyInfo += ", " + info;
+		else
+			denyInfo = info;
+	});
+	if(!allowed){
+		if(!variables.mute)
+			message.reply("Permission Denied" + (denyInfo ? (": " + denyInfo) : ""));
+		return;
+	}
+
+	if(cmd == "stats"){
+		if(variables.mute)
+			return;
+		let meta = botInstances[message.client.type];
+		if(typeof(meta.mod.custom) == "object" && typeof(meta.mod.custom.stats) == "function"){
+			meta.mod.custom.stats(meta.vbot, message);
+		}else{
+			message.channel.send("**Stats**:\nUptime: " + getTimeReadable(bot.uptime) + "\nMessages: " + stats.messagesProcessed
+				+ "\nCommands: " + stats.commandsProcessed + "\n" + (baseHandler.addStats("default", []) || ""));
+		}
+	}else if(cmd.startsWith("internal.")){
+		cmd = cmd.split(".")[1];
+
+		if(cmd == "test"){
+			if(!variables.mute)
+				message.reply("Success");
+		}else if(cmd == "setvar"){ // <key> <value>
+			if(args.length > 2){
+				let value = args[2];
+				for(let i = 3; i < args.length; i++)
+					value += " " + args[i];
+				variables[args[1]] = convertToType(value);
+			}else if(!variables.mute)
+				message.reply("At least two arguments required");
+		}else if(cmd == "getvar"){
+			if(args.length > 1){
+				if(!variables.mute)
+					message.reply(variables[args[1]]);
+			}else if(!variables.mute)
+				message.reply("At least one argument required");
+		}else if(cmd == "shutdown"){
+			shutdown(0);
+		}else if(cmd == "uptime"){
+			if(!variables.mute)
+				message.reply("Uptime: " + getTimeReadable(bot.uptime));
+		}else if(cmd == "setCDMessage"){
+			cd[502] = message;
+		}else
+			if(!variables.mute)
+				message.reply("Unknown internal command");
+	}else{
+		runExternalCommand(message, cmd, args, () => {});
+	}
+}
+
+function runExternalCommand(message, cmd, args, commandCallback){
 	if(typeof(commandCallback) != "function")
 		commandCallback = () => {};
 	let cached = commandCache[cmd];
@@ -716,15 +746,17 @@ function runCommand(message, cmd, args, commandCallback){
 				message.channel.send("[ERROR] Error in command **" + cmd + "**, check console or log for details");
 		};
 		let commandAlias = (name) => {
-			runCommand(message, name, args, commandCallback);
+			runExternalCommand(message, name, args, commandCallback);
 		};
+		if(typeof(commandCallback) != "function")
+			commandCallback = () => {};
 		let vbot = botInstances[message.client.type].vbot;
 		try{
 			vm.runInContext("(function(){" + cached.data + "})();",
 				createNewModuleContext({
 					logger: createLoggerFor(cmd, "cmd"),
 					baseHandler,
-					message, cmd, args, commandCallback, commandAlias, runCommand, writeError
+					message, cmd, args, commandCallback, commandAlias, runCommand, runExternalCommand, writeError
 				}));
 		}catch(e){
 			logger.error("Error while running command '" + cmd + "': " + e);
