@@ -83,7 +83,7 @@ function getCommand(cmd, args){
 	return new Promise((resolve, reject) => {
 		let cpath = path.resolve(commandsDir + "/" + cmd + ".js");
 		if(!cpath.startsWith(commandsDir) || !fs.existsSync(cpath)){
-			resolve();
+			resolve({err: variables.errmsgOnUnknownCmd ? "Invalid Command" : true});
 			return;
 		}
 		let modTime = fs.lstatSync(cpath).mtimeMs;

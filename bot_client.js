@@ -23,7 +23,7 @@ const logger = omzlib.logger;
 const baseStructures = require("./baseStructures");
 
 
-const VERSION = "3.1.0";
+const VERSION = "3.1.1";
 const BRAND = "UBot client v" + VERSION;
 
 
@@ -31,8 +31,6 @@ const pargs = new omzlib.args(process.argv);
 
 const configFile = path.resolve(pargs.getValueOrDefault("config", "botData/config.json"));
 const config = require(configFile);
-
-const baseHandlerFile = "./basehandlers/" + pargs.getValueOrDefault("baseHandler", "basic") + ".js";
 
 const instanceDir = path.resolve(pargs.getValueOrDefault("instanceDir", path.dirname(configFile)));
 
@@ -116,9 +114,21 @@ const moduleContext = {omzlib, instanceDir, bot, botInstances, variables, cd, mo
 	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer};
 
 
-preinit();
+start();
 
-init();
+
+function start(){
+	try{
+		preinit();
+
+		init();
+	}catch(e){
+		logger.fatal("Error during initialization: " + e);
+		logger.consoleLog(e);
+		shutdown(1);
+	}
+
+}
 
 
 function preinit(){
@@ -168,6 +178,7 @@ function preinit(){
 			consoleEval(input);
 		});
 	}
+	rl.on("SIGINT", shutdown);
 
 
 	virtual_modules_init();
@@ -252,14 +263,14 @@ function init(){
 			logger.debug("Requesting modules");
 			reloadModules();
 		}).catch((e) => {
-			logger.fatal("bot_init failed: " + e);
+			logger.fatal("Bot initialization failed: " + e);
 			logger.consoleLog(e);
-			process.exit(1);
+			shutdown(1);
 		});
 	}).catch((e) => {
-		logger.fatal("Base handler init failed: " + e);
+		logger.fatal("Base handler initialization failed: " + e);
 		logger.consoleLog(e);
-		process.exit(1);
+		shutdown(1);
 	});
 }
 
@@ -271,12 +282,15 @@ function close(){
 		baseHandler.close();
 }
 
-function shutdown(){
+function shutdown(status){
 	setTimeout(() => {
 		process.exit(2);
 	}, 2000).unref();
 	close();
+	rl.close();
 	logger.close();
+	if(typeof(status) == "number")
+		process.exitCode = status;
 }
 
 function restart(){
@@ -296,26 +310,27 @@ function restart(){
 
 
 function basehandler_load(){
-	try{
-		let vmodule = {
-			apply: (obj) => {
-				Object.copy(vmodule.exports, obj, true);
-			},
-			exports: {}
-		};
-		vm.runInContext(fs.readFileSync(baseHandlerFile).toString(),
-			createNewModuleContext({
-				logger: createLoggerFor("base"),
-				module: vmodule
-			}));
-		baseHandler = vmodule.exports;
-		if(typeof(baseHandler) != "object"){
-			throw new Error("Data returned by baseHandler is not an object");
-		}
-	}catch(e){
-		logger.fatal("Error while loading basehandler: " + e);
-		process.exit(1);
+	baseHandler = basehandler_load_file(pargs.getValueOrDefault("baseHandler", "basic"));
+}
+
+function basehandler_load_file(name, dir = "./basehandlers"){
+	logger.debug("Loading basehandler '" + name + "'");
+	let vmodule = {
+		apply: (obj) => {
+			Object.copy(vmodule.exports, obj, true);
+		},
+		exports: {}
+	};
+	vm.runInContext(fs.readFileSync(dir + "/" + name + ".js").toString(),
+		createNewModuleContext({
+			logger: createLoggerFor("base"),
+			module: vmodule,
+			loadAdditional: basehandler_load_file
+		}));
+	if(typeof(vmodule.exports) != "object"){
+		throw new Error("Data returned by basehandler is not an object");
 	}
+	return vmodule.exports;
 }
 
 function basehandler_attach(name, defHandler){
@@ -392,66 +407,60 @@ async function bot_init(){
 		bot.on("message", bot_on_message);
 	}
 
-	try{
-		for(let type in config.auth){
-			if(botInstances[type])
-				continue;
-			logger.debug("Initializing bot type '" + type + "'");
+	for(let type in config.auth){
+		if(botInstances[type])
+			continue;
+		logger.debug("Initializing bot type '" + type + "'");
 
-			let token = config.auth[type];
+		let token = config.auth[type];
 
-			let meta = require("./types/" + type);
+		let meta = require("./types/" + type);
 
-			let modName = meta.module;
-			if(typeof(config.versionOverride) == "object" && config.versionOverride[type]){
-				modName += config.versionOverride[type];
-			}else if(meta.defaultVersion){
-				modName += meta.defaultVersion;
-			}
-
-			let modConfig = {};
-			if(typeof(config.moduleConfig) == "object" && typeof(config.moduleConfig[type]) == "object")
-				modConfig = config.moduleConfig[type];
-
-			let vmodule = {
-				apply: (obj) => {
-					Object.copy(vmodule.exports, obj, true);
-				},
-				exports: {}
-			};
-			let typeContext = createNewModuleContext({
-				logger: createLoggerFor(type, "platform"),
-				baseHandler,
-				require: (name) => {
-					return virtualRequire(name, modName);
-				},
-				module: vmodule
-			});
-			let modData = fs.readFileSync("./modules/" + modName + "/" + modName + ".js").toString();
-			vm.runInContext(modData, typeContext);
-			let mod = vmodule.exports;
-
-			let vbot = await mod.init((name) => {
-				name = name || meta.module;
-				let modData = fs.readFileSync("./modules/" + name + "/" + name + "_common.js").toString();
-				vm.runInContext(modData, typeContext);
-				return vmodule.exports;
-			}, modConfig);
-			botInstances[type] = {type, mod, vbot, meta};
-
-			for(let event in baseStructures.events){
-				if(typeof(meta.eventTransformers[event]) != "object")
-					continue;
-				bot_add_event_handler(botInstances[type], event, baseStructures.events[event], meta.eventTransformers[event]);
-			}
-
-			await mod.login(vbot, token);
-			logger.debug("Bot type '" + type + "' login completed");
+		let modName = meta.module;
+		if(typeof(config.versionOverride) == "object" && config.versionOverride[type]){
+			modName += config.versionOverride[type];
+		}else if(meta.defaultVersion){
+			modName += meta.defaultVersion;
 		}
-	}catch(e){
-		logger.fatal("Error during bot initialization: " + e);
-		logger.consoleLog(e);
-		process.exit(1);
+
+		let modConfig = {};
+		if(typeof(config.moduleConfig) == "object" && typeof(config.moduleConfig[type]) == "object")
+			modConfig = config.moduleConfig[type];
+
+		let vmodule = {
+			apply: (obj) => {
+				Object.copy(vmodule.exports, obj, true);
+			},
+			exports: {}
+		};
+		let typeContext = createNewModuleContext({
+			logger: createLoggerFor(type, "platform"),
+			baseHandler,
+			require: (name) => {
+				return virtualRequire(name, modName);
+			},
+			module: vmodule
+		});
+		let modData = fs.readFileSync("./modules/" + modName + "/" + modName + ".js").toString();
+		vm.runInContext(modData, typeContext);
+		let mod = vmodule.exports;
+
+		let vbot = await mod.init((name) => {
+			name = name || meta.module;
+			let modData = fs.readFileSync("./modules/" + name + "/" + name + "_common.js").toString();
+			vm.runInContext(modData, typeContext);
+			return vmodule.exports;
+		}, modConfig);
+		botInstances[type] = {type, mod, vbot, meta};
+
+		for(let event in baseStructures.events){
+			if(typeof(meta.eventTransformers[event]) != "object")
+				continue;
+			bot_add_event_handler(botInstances[type], event, baseStructures.events[event], meta.eventTransformers[event]);
+		}
+
+		await mod.login(vbot, token);
+		logger.debug("Bot type '" + type + "' login completed");
 	}
 }
 
@@ -683,10 +692,9 @@ function runCommand(message, cmd, args, commandCallback){
 		commandCallback = () => {};
 	let cached = commandCache[cmd];
 	baseHandler.getCommand(cmd, {mod: cached ? cached.mod : 0, groupId: message.group ? message.group.gid : undefined, authorId: message.author.uid}).then((data) => {
-		if(!data){
-			if(variables.errmsgOnUnknownCmd && !variables.mute){
-				message.channel.send("Invalid Command");
-			}
+		if(data.err !== undefined){
+			if(!variables.mute && typeof(data.err) == "string")
+				message.reply(data.err);
 			return;
 		}
 		if(!cached){
@@ -724,9 +732,9 @@ function runCommand(message, cmd, args, commandCallback){
 			writeError();
 		}
 	}).catch((e) => {
-		logger.error(e);
+		logger.error("Error while getting command '" + cmd + "': " + e);
 		if(!variables.mute)
-			message.channel.send("[ERROR] " + e);
+			message.channel.send("[ERROR] Internal Error");
 	});
 }
 
