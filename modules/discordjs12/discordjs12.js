@@ -23,10 +23,10 @@ function init(loadAdditional){
 
 
 function send_message(bot, channelId, content){
-	bot.channels.fetch(channelId).then((channel) => {
-		channel.send(content);
-	}).catch((e) => {
-		logger.error("Cannot send message to '" + channelId + "': " + e);
+	return new Promise((resolve, reject) => {
+		bot.channels.fetch(channelId).then((channel) => {
+			channel.send(content).then(resolve).catch(reject);
+		}).catch(reject);
 	});
 }
 
@@ -60,6 +60,14 @@ function resolve_user(bot, str, authorId){
 	});
 }
 
+function send_message_to_user(bot, userId, content){
+	return new Promise((resolve, reject) => {
+		bot.users.fetch(userId).then((user) => {
+			user.send(content).then(resolve).catch(reject);
+		}).catch(reject);
+	});
+}
+
 
 module.apply({
 	init,
@@ -67,7 +75,8 @@ module.apply({
 	globals: {
 		send_message,
 		get_user,
-		resolve_user
+		resolve_user,
+		send_message_to_user
 	},
 	special: {}
 });

@@ -63,21 +63,16 @@
 						"script": "arg.sender == instance.vbot._selfUserId"
 					},
 					"author": {
-						"uid": {
-							"argIndex": 1,
-							"property": "sender"
-						},
-						"username": {
-							"argIndex": 1,
-							"script": "arg.sender.split(':')[0]"
-						}
+						"typeArgIndex": 1,
+						"typeProperty": "sender",
+						"botGlobalsData": "get_user"
 					},
 					"channel": {
 						"cid": {
 							"argIndex": 0
 						},
 						"send": {
-							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0] + \"', content)\").bind(botGlobals)"
+							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
 						}
 					},
 					"group": {
@@ -86,7 +81,7 @@
 						}
 					},
 					"reply": {
-						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0] + \"', content)\").bind(botGlobals)"
+						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
 					},
 					"includeOriginal": 1
 				}
@@ -95,8 +90,15 @@
 	},
 	"typeTransformers": {
 		"user": {
-			"uid": "id",
-			"username": "displayname"
+			"uid": {
+				"property": "id"
+			},
+			"username": {
+				"property": "displayname"
+			},
+			"send": {
+				"evalScript": "new Function('content', \"this.send_message_to_user('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
+			}
 		}
 	}
 }

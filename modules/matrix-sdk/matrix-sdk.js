@@ -123,7 +123,7 @@ function format(str){
 
 
 function send_message(bot, channelId, content){
-	bot.sendMessage(channelId, {
+	return bot.sendMessage(channelId, {
 		msgtype: "m.text",
 		body: content,
 		format: 'org.matrix.custom.html',
@@ -169,6 +169,10 @@ function resolve_user(bot, str, authorId){
 	});
 }
 
+function send_message_to_user(bot, userId, content){
+	throw new Error("Unimplemented");
+}
+
 
 module.apply({
 	init,
@@ -178,7 +182,8 @@ module.apply({
 	globals: {
 		send_message,
 		get_user,
-		resolve_user
+		resolve_user,
+		send_message_to_user
 	},
 	special: {
 		debugStr

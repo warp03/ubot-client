@@ -32,10 +32,7 @@
 				"deleted": "boolean",
 				"dm": "boolean",
 				"self": "boolean",
-				"author": {
-					"uid": "string",
-					"username": "string"
-				},
+				"author": "type:user",
 				"channel": {
 					"cid": "string",
 					"name": "string",
@@ -70,7 +67,8 @@
 	"types": {
 		"user": {
 			"uid": "string",
-			"username": "string"
+			"username": "string",
+			"send": "function"
 		}
 	}
 }

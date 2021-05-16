@@ -23,7 +23,7 @@ const logger = omzlib.logger;
 const baseStructures = require("./baseStructures");
 
 
-const VERSION = "3.1.2";
+const VERSION = "3.2.0";
 const BRAND = "UBot client v" + VERSION;
 
 
@@ -208,7 +208,8 @@ function preinit(){
 	basehandler_attach("getCommand", baseHandlerUnimplemented);
 
 
-	botglobal_add_handler("send_message");
+	botglobal_add_handler("send_message"); // send_message(platformChannelId, content)
+	botglobal_add_handler("send_message_to_user"); // send_message_to_user(platformUserId, content)
 	botglobal_add_handler("get_user", function(instanceType, userId){
 		return new Promise((resolve, reject) => {
 			botInstances[instanceType].mod.globals.get_user(botInstances[instanceType].vbot, userId).then(async (instanceUser) => {
@@ -224,6 +225,8 @@ function preinit(){
 		});
 	});
 
+	bot.sendMessage = botGlobals.send_message;
+	bot.sendMessageToUser = botGlobals.send_message_to_user;
 	bot.fetchInstanceUser = botGlobals.get_user;
 	bot.resolveInstanceUser = botGlobals.resolve_user;
 
@@ -381,7 +384,7 @@ function botglobal_add_handler(name, handler){
 			let args = [];
 			for(let i = 1; i < arguments.length; i++)
 				args[i - 1] = arguments[i];
-			botInstances[instanceType].mod.globals[name](botInstances[instanceType].vbot, ...args);
+			return botInstances[instanceType].mod.globals[name](botInstances[instanceType].vbot, ...args);
 		};
 	}
 }
@@ -493,57 +496,70 @@ function bot_close(){
 }
 
 
+async function bot_transform_object(instance, baseArg, transformerArg, sourceArgs, sourceIndex){
+	if(typeof(transformerArg) != "object")
+		throw new TypeError("transformerArg is not an object");
+	if(typeof(baseArg) == "object"){
+		let obj = {};
+		for(let p in baseArg){
+			if(p == "includeInstance")
+				continue;
+			if(typeof(transformerArg[p]) == "object"){
+				obj[p] = await bot_transform_object(instance, baseArg[p], transformerArg[p], sourceArgs, sourceIndex);
+				if(obj[p] && baseStructures.identityTransformKeys.indexOf(p) >= 0){
+					obj[p + "_original"] = obj[p];
+					obj[p] = await baseHandler.identityRequest(instance.type, obj[p]);
+				}
+			}else
+				obj[p] = null;
+		}
+		if(baseArg.includeInstance)
+			obj.client = instance;
+		if(typeof(transformerArg.includeOriginal) == "number")
+			obj._platformInstance = sourceArgs[transformerArg.includeOriginal];
+		return obj;
+	}else if(typeof(baseArg) == "string" && baseArg.startsWith("type:")){
+		let typeName = baseArg.substring(5);
+		let valueArg = sourceArgs[transformerArg.typeArgIndex];
+		if(!valueArg)
+			return null;
+		let value = transformerArg.typeProperty ? Object.resolve(valueArg, transformerArg.typeProperty) : valueArg;
+		if(transformerArg.botGlobalsData)
+			return await botGlobals[transformerArg.botGlobalsData](instance.type, value);
+		else
+			return await bot_get_type(instance.type, typeName, value);
+	}else{
+		let argIndex = transformerArg.argIndex;
+		if(typeof(argIndex) != "number")
+			argIndex = sourceIndex;
+		if(!sourceArgs[argIndex] && !(transformerArg.evalScript || transformerArg.constant))
+			return null;
+		let value;
+		if(transformerArg.property)
+			value = Object.resolve(sourceArgs[argIndex], transformerArg.property);
+		else if(transformerArg.evalScript)
+			value = eval("(" + transformerArg.evalScript + ")");
+		else if(transformerArg.script){
+			let func = new Function("arg", "instance", "return (" + transformerArg.script + ")");
+			value = func(sourceArgs[argIndex], instance);
+		}else if(transformerArg.constant)
+			value = transformerArg.constant;
+		else
+			value = sourceArgs[argIndex];
+		if(typeof(value) != baseArg)
+			return null;
+		return value;
+	}
+}
+
 function bot_add_event_handler(instance, event, base, transformer){
 	instance.vbot.on(transformer.event, async function(){
 		try{
 			let start = Date.now();
 			let args = [];
-			let getPropertyFromOrigin = (type, transformerArg) => {
-				if(!arguments[transformerArg.argIndex] && !(transformerArg.evalScript || transformerArg.constant))
-					return null;
-				let value;
-				if(transformerArg.property)
-					value = Object.resolve(arguments[transformerArg.argIndex], transformerArg.property);
-				else if(transformerArg.evalScript)
-					value = eval("(" + transformerArg.evalScript + ")");
-				else if(transformerArg.script){
-					let func = new Function("arg", "instance", "return (" + transformerArg.script + ")");
-					value = func(arguments[transformerArg.argIndex], instance);
-				}else if(transformerArg.constant)
-					value = transformerArg.constant;
-				else
-					value = arguments[transformerArg.argIndex];
-				if(typeof(value) != type)
-					return null;
-				return value;
-			};
-			let getProperty = async (baseArg, transformerArg) => {
-				if(typeof(baseArg) == "object"){
-					let obj = {};
-					for(let p in baseArg){
-						if(p == "includeInstance")
-							continue;
-						if(typeof(transformerArg[p]) == "object"){
-							obj[p] = await getProperty(baseArg[p], transformerArg[p]);
-							if(baseStructures.identityTransformKeys.indexOf(p) >= 0){
-								obj[p + "_original"] = obj[p];
-								obj[p] = await baseHandler.identityRequest(instance.type, obj[p]);
-							}
-						}else
-							obj[p] = null;
-					}
-					if(baseArg.includeInstance)
-						obj.client = instance;
-					if(typeof(transformerArg.includeOriginal) == "number")
-						obj._platformInstance = arguments[transformerArg.includeOriginal];
-					return obj;
-				}else{
-					return getPropertyFromOrigin(baseArg, transformerArg);
-				}
-			};
 			for(let i = 0; i < base.length; i++){
 				if(typeof(transformer.args[i]) == "object")
-					args[i] = await getProperty(base[i], transformer.args[i]);
+					args[i] = await bot_transform_object(instance, base[i], transformer.args[i], arguments);
 			}
 			if(typeof(transformer.special) == "string" && typeof(instance.mod.special) == "object" && typeof(instance.mod.special[transformer.special]) == "function"){
 				args = instance.mod.special[transformer.special](...args);
@@ -568,20 +584,11 @@ async function bot_get_type(instanceType, dataType, data){
 	if(!baseStructures.types[dataType])
 		return;
 	let i = botInstances[instanceType];
-	let o = {_platformInstance: data};
+	let o;
 	if(typeof(i.meta.typeTransformers) == "object" && typeof(i.meta.typeTransformers[dataType]) == "object"){
-		for(let k in baseStructures.types[dataType]){
-			let property = i.meta.typeTransformers[dataType][k];
-			if(property){
-				o[k] = Object.resolve(data, property);
-				if(baseStructures.identityTransformKeys.indexOf(k) >= 0){
-					o[k + "_original"] = o[k];
-					o[k] = await baseHandler.identityRequest(instanceType, o[k]);
-				}
-			}else
-				o[k] = null;
-		}
+		o = await bot_transform_object(i, baseStructures.types[dataType], i.meta.typeTransformers[dataType], [data], 0);
 	}
+	o._platformInstance = data;
 	return o;
 }
 

@@ -62,14 +62,9 @@
 						"script": "arg.author.id == instance.vbot.user.id"
 					},
 					"author": {
-						"uid": {
-							"argIndex": 0,
-							"property": "author.id"
-						},
-						"username": {
-							"argIndex": 0,
-							"script": "arg.author.username + '#' + arg.author.discriminator"
-						}
+						"typeArgIndex": 0,
+						"typeProperty": "author.id",
+						"botGlobalsData": "get_user"
 					},
 					"channel": {
 						"cid": {
@@ -89,7 +84,7 @@
 							"property": "channel.guild.id"
 						},
 						"send": {
-							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0].channel.id + \"', content)\").bind(botGlobals)"
+							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', content)\").bind(botGlobals)"
 						}
 					},
 					"group": {
@@ -107,7 +102,7 @@
 						}
 					},
 					"reply": {
-						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + arguments[0].channel.id + \"', '<@\" + arguments[0].author.id + \">, ' + content)\").bind(botGlobals)"
+						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', '<@\" + sourceArgs[0].author.id + \">, ' + content)\").bind(botGlobals)"
 					},
 					"includeOriginal": 0
 				}
@@ -146,8 +141,15 @@
 	},
 	"typeTransformers": {
 		"user": {
-			"uid": "id",
-			"username": "username"
+			"uid": {
+				"property": "id"
+			},
+			"username": {
+				"script": "arg.username + '#' + arg.discriminator"
+			},
+			"send": {
+				"evalScript": "new Function('content', \"this.send_message_to_user('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
+			}
 		}
 	}
 }
