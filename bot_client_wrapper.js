@@ -3,9 +3,14 @@ const child_process = require('child_process');
 const path = require('path');
 
 
-var rootPath = rootPath || ".";
+let defRootPath = ".";
+if(process.argv[2] && process.argv[2].startsWith("cwd:")){
+	defRootPath = process.argv[2].substring(4);
+}
 
-const filename = rootPath + "/bot_client.js";
+var rootPath = rootPath || defRootPath;
+
+const filename = "bot_client.js";
 
 
 let restartIntervalTime = parseInt(process.argv[2]);
