@@ -237,7 +237,7 @@ function preinit(){
 		let cva = cv.split(":");
 		if(cva.length < 2)
 			continue;
-		variables[cva[0]] = decodeURIComponent(cva[1]);
+		variables[cva[0]] = convertToType(decodeURIComponent(cva[1]));
 	}
 
 
