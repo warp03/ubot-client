@@ -23,7 +23,7 @@ const logger = omzlib.logger;
 const baseStructures = require("./baseStructures");
 
 
-const VERSION = "3.2.0";
+const VERSION = "3.2.2";
 const BRAND = "UBot client v" + VERSION;
 
 
@@ -111,7 +111,7 @@ const virtualModules = {
 };
 
 const moduleContext = {omzlib, instanceDir, bot, botInstances, variables, cd, modules, botData, require: virtualRequire, convertToType, VERSION, BRAND,
-	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer, userIdentityRequest};
+	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer, userIdentityRequest, shutdown, exit};
 
 
 start();
@@ -178,7 +178,7 @@ function preinit(){
 			consoleEval(input);
 		});
 	}
-	rl.on("SIGINT", shutdown);
+	rl.on("SIGINT", exit);
 
 
 	virtual_modules_init();
@@ -300,9 +300,16 @@ function close(){
 		provider.close();
 }
 
+function exit(){
+	shutdown(130);
+}
+
 function shutdown(status){
 	setTimeout(() => {
-		process.exit(2);
+		if(status == 130)
+			process.exit(130);
+		else
+			process.exit(2);
 	}, 2000).unref();
 	close();
 	rl.close();
@@ -709,6 +716,8 @@ function runCommand(message, cmd, args){
 					message.reply(variables[args[1]]);
 			}else if(!variables.mute)
 				message.reply("At least one argument required");
+		}else if(cmd == "exit"){
+			exit();
 		}else if(cmd == "shutdown"){
 			shutdown(0);
 		}else if(cmd == "uptime"){

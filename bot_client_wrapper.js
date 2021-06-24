@@ -59,6 +59,10 @@ function spawn(){
 	proc.on("close", (code) => {
 		log("Process exited with exit code " + code);
 		proc = undefined;
+		if(code == 130){
+			log("Process requested to exit");
+			exitRequest = true;
+		}
 		if(exitRequest)
 			return;
 		log("Restarting process in 3 seconds");
