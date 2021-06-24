@@ -111,7 +111,7 @@ const virtualModules = {
 };
 
 const moduleContext = {omzlib, instanceDir, bot, botInstances, variables, cd, modules, botData, require: virtualRequire, convertToType, VERSION, BRAND,
-	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer};
+	getTimeReadable, getUTCDateReadable, stats, global, config, globalEventHandler, Buffer, userIdentityRequest};
 
 
 start();
@@ -775,6 +775,11 @@ function runExternalCommand(message, cmd, args, commandCallback){
 		if(!variables.mute)
 			message.channel.send("[ERROR] Internal Error");
 	});
+}
+
+
+function userIdentityRequest(type, platformId, override){
+	return baseHandler.identityRequest(type, platformId, override);
 }
 
 
