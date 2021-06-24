@@ -58,7 +58,7 @@ let bot = new Bot();
 let botInstances = {};
 let botInit = false;
 
-let baseHandler = {};
+let provider = {};
 
 let variableData = {
 	_changeHandlers: {},
@@ -184,28 +184,28 @@ function preinit(){
 	virtual_modules_init();
 
 
-	basehandler_load();
+	provider_load();
 
-	const baseHandlerUnimplemented = () => {
+	const providerUnimplemented = () => {
 		return new Promise((resolve, reject) => {
 			reject(new Error("Unimplemented"));
 		});
 	};
 
-	basehandler_attach("preinit");
-	basehandler_attach("init", () => {
+	provider_attach("preinit");
+	provider_attach("init", () => {
 		return new Promise((resolve, reject) => {
 			resolve();
 		});
 	});
-	basehandler_attach("loginComplete");
-	basehandler_attach("sendLog");
-	basehandler_attach("close");
+	provider_attach("loginComplete");
+	provider_attach("sendLog");
+	provider_attach("close");
 
-	basehandler_attach("addStats");
-	basehandler_attach("identityRequest", baseHandlerUnimplemented);
-	basehandler_attach("getModules", baseHandlerUnimplemented);
-	basehandler_attach("getCommand", baseHandlerUnimplemented);
+	provider_attach("addStats");
+	provider_attach("identityRequest", providerUnimplemented);
+	provider_attach("getModules", providerUnimplemented);
+	provider_attach("getCommand", providerUnimplemented);
 
 
 	botglobal_add_handler("send_message"); // send_message(platformChannelId, content)
@@ -244,7 +244,7 @@ function preinit(){
 	let logCallback = (str, level) => {
 		logger.setLogCallback(0);
 		// sendLog may have logs and also calls the callback, so not temporarily resetting the callback can cause stack overflow
-		baseHandler.sendLog("[" + level + "] " + str);
+		provider.sendLog("[" + level + "] " + str);
 		logger.setLogCallback(logCallback);
 	};
 	logger.setLogCallback(logCallback);
@@ -252,7 +252,7 @@ function preinit(){
 
 	logger.info(BRAND);
 
-	baseHandler.preinit();
+	provider.preinit();
 }
 
 function init(){
@@ -271,10 +271,10 @@ function init(){
 		}
 	});
 
-	baseHandler.init().then(() => {
+	provider.init().then(() => {
 		bot_init().then(() => {
 			try{
-				baseHandler.loginComplete();
+				provider.loginComplete();
 			}catch(e){
 				logger.error("Error in loginComplete: " + e);
 			}
@@ -296,8 +296,8 @@ function close(){
 	unloadModules();
 	logger.info("Closing");
 	bot_close();
-	if(baseHandler.close)
-		baseHandler.close();
+	if(provider.close)
+		provider.close();
 }
 
 function shutdown(status){
@@ -327,12 +327,12 @@ function restart(){
 }
 
 
-function basehandler_load(){
-	baseHandler = basehandler_load_file(pargs.getValueOrDefault("baseHandler", "basic"));
+function provider_load(){
+	provider = provider_load_file(pargs.getValueOrDefault("provider", "basic"));
 }
 
-function basehandler_load_file(name, dir = "./basehandlers"){
-	logger.debug("Loading basehandler '" + name + "'");
+function provider_load_file(name, dir = "./providers"){
+	logger.debug("Loading provider '" + name + "'");
 	let vmodule = {
 		apply: (obj) => {
 			Object.copy(vmodule.exports, obj, true);
@@ -343,17 +343,17 @@ function basehandler_load_file(name, dir = "./basehandlers"){
 		createNewModuleContext({
 			logger: createLoggerFor("base"),
 			module: vmodule,
-			loadAdditional: basehandler_load_file
+			loadAdditional: provider_load_file
 		}));
 	if(typeof(vmodule.exports) != "object"){
-		throw new Error("Data returned by basehandler is not an object");
+		throw new Error("Data returned by provider is not an object");
 	}
 	return vmodule.exports;
 }
 
-function basehandler_attach(name, defHandler){
-	if(typeof(baseHandler[name]) != "function"){
-		baseHandler[name] = defHandler || (() => {});
+function provider_attach(name, defHandler){
+	if(typeof(provider[name]) != "function"){
+		provider[name] = defHandler || (() => {});
 	}
 }
 
@@ -453,7 +453,7 @@ async function bot_init(){
 		};
 		let typeContext = createNewModuleContext({
 			logger: createLoggerFor(type, "platform"),
-			baseHandler,
+			provider,
 			require: (name) => {
 				return virtualRequire(name, modName);
 			},
@@ -508,7 +508,7 @@ async function bot_transform_object(instance, baseArg, transformerArg, sourceArg
 				obj[p] = await bot_transform_object(instance, baseArg[p], transformerArg[p], sourceArgs, sourceIndex);
 				if(obj[p] && baseStructures.identityTransformKeys.indexOf(p) >= 0){
 					obj[p + "_original"] = obj[p];
-					obj[p] = await baseHandler.identityRequest(instance.type, obj[p]);
+					obj[p] = await provider.identityRequest(instance.type, obj[p]);
 				}
 			}else
 				obj[p] = null;
@@ -616,7 +616,7 @@ function bot_on_message(message){
 
 function reloadModules(){
 	unloadModules();
-	baseHandler.getModules().then((modules) => {
+	provider.getModules().then((modules) => {
 		if(!Array.isArray(modules)){
 			logger.warn("Modules is not an array");
 		}else{
@@ -627,7 +627,7 @@ function reloadModules(){
 					vm.runInContext(m.data.toString(),
 						createNewModuleContext({
 							logger: createLoggerFor(m.name, "module"),
-							baseHandler,
+							provider,
 							moduleData,
 							runCommand,
 							runExternalCommand
@@ -687,7 +687,7 @@ function runCommand(message, cmd, args){
 			meta.mod.custom.stats(meta.vbot, message);
 		}else{
 			message.channel.send("**Stats**:\nUptime: " + getTimeReadable(bot.uptime) + "\nMessages: " + stats.messagesProcessed
-				+ "\nCommands: " + stats.commandsProcessed + "\n" + (baseHandler.addStats("default", []) || ""));
+				+ "\nCommands: " + stats.commandsProcessed + "\n" + (provider.addStats("default", []) || ""));
 		}
 	}else if(cmd.startsWith("internal.")){
 		cmd = cmd.split(".")[1];
@@ -728,7 +728,7 @@ function runExternalCommand(message, cmd, args, commandCallback){
 	if(typeof(commandCallback) != "function")
 		commandCallback = () => {};
 	let cached = commandCache[cmd];
-	baseHandler.getCommand(cmd, {mod: cached ? cached.mod : 0, groupId: message.group ? message.group.gid : undefined, authorId: message.author.uid}).then((data) => {
+	provider.getCommand(cmd, {mod: cached ? cached.mod : 0, groupId: message.group ? message.group.gid : undefined, authorId: message.author.uid}).then((data) => {
 		if(data.err !== undefined){
 			if(!variables.mute && typeof(data.err) == "string")
 				message.reply(data.err);
@@ -762,7 +762,7 @@ function runExternalCommand(message, cmd, args, commandCallback){
 			vm.runInContext("(function(){" + cached.data + "})();",
 				createNewModuleContext({
 					logger: createLoggerFor(cmd, "cmd"),
-					baseHandler,
+					provider,
 					message, cmd, args, commandCallback, commandAlias, runCommand, runExternalCommand, writeError
 				}));
 		}catch(e){
@@ -779,7 +779,7 @@ function runExternalCommand(message, cmd, args, commandCallback){
 
 
 function userIdentityRequest(type, platformId, override){
-	return baseHandler.identityRequest(type, platformId, override);
+	return provider.identityRequest(type, platformId, override);
 }
 
 
