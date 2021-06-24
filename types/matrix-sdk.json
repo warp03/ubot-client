@@ -72,7 +72,7 @@
 							"argIndex": 0
 						},
 						"send": {
-							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
+							"evalScript": "new Function('content', \"return this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
 						}
 					},
 					"group": {
@@ -81,7 +81,7 @@
 						}
 					},
 					"reply": {
-						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
+						"evalScript": "new Function('content', \"return this.send_message('\" + instance.type + \"', '\" + sourceArgs[0] + \"', content)\").bind(botGlobals)"
 					},
 					"includeOriginal": 1
 				}

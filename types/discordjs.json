@@ -84,7 +84,7 @@
 							"property": "channel.guild.id"
 						},
 						"send": {
-							"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', content)\").bind(botGlobals)"
+							"evalScript": "new Function('content', \"return this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', content)\").bind(botGlobals)"
 						}
 					},
 					"group": {
@@ -102,7 +102,7 @@
 						}
 					},
 					"reply": {
-						"evalScript": "new Function('content', \"this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', '<@\" + sourceArgs[0].author.id + \">, ' + content)\").bind(botGlobals)"
+						"evalScript": "new Function('content', \"return this.send_message('\" + instance.type + \"', '\" + sourceArgs[0].channel.id + \"', '<@\" + sourceArgs[0].author.id + \">, ' + content)\").bind(botGlobals)"
 					},
 					"includeOriginal": 0
 				}
