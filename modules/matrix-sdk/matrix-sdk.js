@@ -90,7 +90,6 @@ function close(bot){
 
 
 function format(str){
-	str = str.replace(/\</g, "&lt;").replace(/\>/g, "&gt;").replace(/\n/g, "<br />");
 	let o = "";
 	let open = {};
 	for(let i = 0; i < str.length; i++){
@@ -99,12 +98,11 @@ function format(str){
 				if(open.bold){
 					open.bold = false;
 					o += "</strong>";
-					i++;
 				}else{
 					open.bold = true;
 					o += "<strong>";
-					i++;
 				}
+				i++;
 			}else{
 				if(open.em){
 					open.em = false;
@@ -114,6 +112,39 @@ function format(str){
 					o += "<em>";
 				}
 			}
+		}else if(str[i] == "`"){
+			if(str[i + 1] == "`" && str[i + 2] == "`"){
+				if(open.codeblock){
+					open.codeblock = false;
+					o += "</pre>";
+				}else{
+					open.codeblock = true;
+					o += "<pre>";
+				}
+				i += 2;
+			}else{
+				if(open.code){
+					open.code = false;
+					o += "</code>";
+				}else{
+					open.code = true;
+					o += "<code>";
+				}
+			}
+		}else if(str[i] == ">" && str[i - 1] == "\n"){
+			if(!open.blockquote){
+				open.blockquote = true;
+				o += "<blockquote>\n";
+			}
+		}else if(open.blockquote && str[i] == "\n" && str[i + 1] != ">"){
+			open.blockquote = false;
+			o += "\n</blockquote>";
+		}else if(str[i] == "\n"){
+			o += "<br />";
+		}else if(str[i] == "<"){
+			o += "&lt;";
+		}else if(str[i] == ">"){
+			o += "&gt;";
 		}else{
 			o += str[i];
 		}
