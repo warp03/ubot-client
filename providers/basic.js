@@ -62,7 +62,7 @@ function identityRequest(instanceType, platformId, override){
 		if(override){
 			userIdentities[instanceType][platformId] = override;
 			c = true;
-		}else if(!userIdentities[instanceType][platformId]){
+		}else if(!userIdentities[instanceType][platformId] && override !== false){
 			userIdentities[instanceType][platformId] = getNewId();
 			c = true;
 		} 
