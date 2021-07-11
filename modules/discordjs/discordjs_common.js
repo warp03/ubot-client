@@ -96,7 +96,7 @@ function statsMsg(bot, message){
 	embed.addField("Discord API service", "Connected since: " + getUTCDateReadable(discordConnected)
 			+ " (" + getTimeReadable(currentTime - discordConnected) + ")\nDisconnects: " + disconnectsDiscord + "\n");
 	let bbrand;
-	let bstats = baseHandler.addStats("discordjs", [embed, (brand) => {bbrand = brand;}]);
+	let bstats = provider.addStats("discordjs", [embed, (brand) => {bbrand = brand;}]);
 	if(typeof(bstats) == "string")
 		embed.addField("Base", bstats);
 	embed.setTimestamp();
