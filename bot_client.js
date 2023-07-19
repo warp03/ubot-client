@@ -767,18 +767,17 @@ function runExternalCommand(message, cmd, args, commandCallback){
 		if(typeof(commandCallback) != "function")
 			commandCallback = () => {};
 		let vbot = botInstances[message.client.type].vbot;
-		try{
-			vm.runInContext("(function(){" + cached.data + "})();",
-				createNewModuleContext({
-					logger: createLoggerFor(cmd, "cmd"),
-					provider,
-					message, cmd, args, commandCallback, commandAlias, runCommand, runExternalCommand, writeError
-				}));
-		}catch(e){
+		vm.runInContext("(async function(){" + cached.data + "})();",
+			createNewModuleContext({
+				logger: createLoggerFor(cmd, "cmd"),
+				provider,
+				message, cmd, args, commandCallback, commandAlias, runCommand, runExternalCommand, writeError
+			})
+		).catch((e) => {
 			logger.error("Error while running command '" + cmd + "': " + e);
 			logger.consoleLog(e);
 			writeError();
-		}
+		});
 	}).catch((e) => {
 		logger.error("Error while getting command '" + cmd + "': " + e);
 		if(!variables.mute)
